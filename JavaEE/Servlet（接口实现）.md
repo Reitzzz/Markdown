@@ -1,4 +1,4 @@
-# Servlet
+# Servlet (接口实现)
 
 其本质是一个接口，由以下几大方法组成
 
@@ -67,5 +67,51 @@ public ServletConfig getServletConfig() {
 @Override
 public String getServletInfo() {
     return "Version: 1.0, Author: Admin";
+}
+```
+
+
+## 总体代码实现
+
+```c
+import javax.servlet.Servlet;
+import javax.servlet.ServletConfig;
+import javax.servlet.ServletException;
+import javax.servlet.ServletRequest;
+import javax.servlet.ServletResponse;
+import java.io.IOException;
+import java.io.PrintWriter;
+
+public class DemoServlet implements Servlet {
+
+    private ServletConfig servletConfig;
+
+    @Override
+    public void init(ServletConfig config) throws ServletException {
+        this.servletConfig = config;
+        System.out.println("Servlet initialized");
+    }
+
+    @Override
+    public ServletConfig getServletConfig() {
+        return this.servletConfig;
+    }
+
+    @Override
+    public void service(ServletRequest req, ServletResponse res) throws ServletException, IOException {
+        res.setContentType("text/html;charset=UTF-8");
+        PrintWriter out = res.getWriter();
+        out.println("<h1>Hello World</h1>");
+    }
+
+    @Override
+    public String getServletInfo() {
+        return "Version: 1.0, Author: Admin";
+    }
+
+    @Override
+    public void destroy() {
+        System.out.println("Servlet destroyed");
+    }
 }
 ```
