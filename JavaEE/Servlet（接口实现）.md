@@ -82,6 +82,8 @@ import javax.servlet.ServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
 
+@WebServlet("/user") //代替xml配置 指定页面映射
+
 public class DemoServlet implements Servlet {
 
     private ServletConfig servletConfig;

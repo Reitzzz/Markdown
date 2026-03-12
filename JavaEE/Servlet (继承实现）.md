@@ -71,7 +71,8 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
 
-@WebServlet("/user")
+@WebServlet("/user")//代替xml配置 指定页面映射
+
 public class UserServlet extends HttpServlet {
 
     @Override
