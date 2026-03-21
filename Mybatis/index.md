@@ -117,12 +117,10 @@ sqlSession.close(); //释放资源
 </typeAliases>
 ```
 
-设置包扫描（在指定包名下搜索需要的Javabean）：<br>
-1. 扫描目标：**普通的 Java 实体类（POJO/JavaBean）。**
-2. 核心作用: 
-自动起别名。它告诉 MyBatis 去指定的包下扫描所有的实体类，并默认以类名首字母小写（或直接使用类名）作为别名。
-
-3. 带来的好处：在编写后续的 SQL Mapper XML 文件时，你的 resultType 或 parameterType 只需要写 User 或 user，而不需要写冗长的全限定类名 domain.blog.User。
+设置包扫描（在指定包名下搜索需要的Javabean）：
+- 扫描目标：**普通的 Java 实体类（POJO/JavaBean）。**
+- 核心作用：自动起别名。它告诉 MyBatis 去指定的包下扫描所有的实体类，并默认以类名首字母小写（或直接使用类名）作为别名。
+- 带来的好处：在编写后续的 SQL Mapper XML 文件时，你的 resultType 或 parameterType 只需要写 User 或 user，而不需要写冗长的全限定类名 domain.blog.User。
 ```xml
 <typeAliases> 
     <package name="domain.blog"/> 
@@ -143,19 +141,17 @@ sqlSession.close(); //释放资源
      `src/main/java/Mybatis_demo/tb_brandMapper.java`
      `src/main/resources/Mybatis_demo/tb_brandMapper.xml`
    - 同一目录则可以在配置文件中使用包扫描来简化SQL映射文件的加载：
-     1. 扫描目标：**Mapper 接口及其对应的 XML 映射文件。**
-
-     2. 核心作用：批量加载映射器。它告诉 MyBatis 去指定的包（如 Mybatis_demo）下扫描所有的 Mapper 接口，并自动将它们注册到引擎中。
-
-     3. 带来的好处：如果你的项目里有 50 个表对应的 50 个 Mapper 接口，不需要在核心配置文件中写 50 遍 <mapper resource="..."/>，只需一行包扫描即可全部加载。
+     - 扫描目标：**Mapper 接口及其对应的 XML 映射文件。**
+     - 核心作用：批量加载映射器。它告诉 MyBatis 去指定的包（如 Mybatis_demo）下扫描所有的 Mapper 接口，并自动将它们注册到引擎中。
+     - 带来的好处：如果你的项目里有 50 个表对应的 50 个 Mapper 接口，不需要在核心配置文件中写 50 遍 `<mapper resource="..."/>`，只需一行包扫描即可全部加载。
      ```xml
      <mappers>
          <package name="Mybatis_demo"/>
      </mappers>
      ```
-1. 设置SQL映射文件的namespace属性为接口的全限定名（包名.类名）。
-2. 在Mapper接口中定义方法，方法名就是SQL映射文件中sql语句的id，并保持参数类型和返回值运行一致。
-3. 编码：
+2. 设置SQL映射文件的namespace属性为接口的全限定名（包名.类名）。
+3. 在Mapper接口中定义方法，方法名就是SQL映射文件中sql语句的id，并保持参数类型和返回值运行一致。
+4. 编码：
    - 4(1) 通过 SqlSession 的 getMapper 方法获取 Mapper 接口的代理对象：
      ```java
      UserMapper mapper = sqlSession.getMapper(UserMapper.class);
@@ -309,17 +305,18 @@ List<Brand> selectByCondition(@Param("status") int status, @Param("companyName")
   ]]>
   ```
 ```xml
-<select id="selectById" resultMap="brandResultMap1">
-        select
-            *
-        from tb_brand
-        where id = #{id}
-    </select>
+<select id="selectById" resultMap="brandResultMap">
+    select
+        *
+    from tb_brand
+    where id = #{id}
+</select>
 ```
 
 #### 5.1.3 条件查询
 
-**多条件静态查询** (传递参数，写在接口里)：**仅了解 几乎不使用**
+**多条件静态查询** ：**仅了解 几乎不使用** <br><br><br>
+    传递参数:
 - 散装参数：如果方法中有多个参数，需要使用 @Param("SQL参数占位符名称")。
   ```java
   List<Brand> selectByCondition(@Param("status")int status, @Param("companyName") String companyName, @Param("brandName") String brandName);
@@ -332,8 +329,6 @@ List<Brand> selectByCondition(@Param("status") int status, @Param("companyName")
   ```java
   List<Brand> selectByCondition(Map map);
   ```
-
-
 
 **多条件动态查询**：
 - if 使用：
