@@ -11,8 +11,8 @@ public class HobbyServlet extends HttpServlet {
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
        req.setCharacterEncoding("UTF-8");
-       String hobby=req.getParameter("hobby");
-       String username=req.getParameter("username");
+       String hobby = req.getParameter("hobby");
+       String username = req.getParameter("username");
     }
 }
-
+```

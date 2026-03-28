@@ -1,26 +1,37 @@
-# 响应字符
+# Response响应字符＆字节数据
 
-使用方法
-```c
-response.setContentType("text/html;charset=utf-8"); //告诉浏览器：“我发给你的是一个 HTML 网页文件 并指定字符编码为UTF-8
+## 响应字符 (HTML数据)
 
-PrintWriter writer = response.getWriter();//获取字符输出流
+告诉浏览器发过去的是 HTML 网页文件，并指定字符编码为 UTF-8。
 
+```java
+response.setContentType("text/html;charset=utf-8"); 
 
-writer.write( s: "你好");
-writer.write( s: "<h1>aaa</h1>");
+PrintWriter writer = response.getWriter();
+
+writer.write("你好");
+writer.write("<h1>aaa</h1>");
 ```
 
-注意： 流不需要关闭
+## 响应字符 (JSON数据 - 现代开发核心重点)
 
-# 响应字节数据
+在前后端分离的开发模式中，后端通常返回 JSON 格式的数据供前端解析，而不是返回 HTML 标签。必须设置正确的 Content-Type 响应头。
+
+```java
+response.setContentType("application/json;charset=utf-8");
+
+PrintWriter writer = response.getWriter();
+writer.write("{\"code\": 200, \"message\": \"success\"}");
+```
+
+## 响应字节数据
 
 使用方法：
 
-```c
-FileInputStream fis = new FileInputStream( name: "d://a.jpg"); //1.读取文件
-ServletOutputStream os = resp.getOutputStream(); //2.通过Response对象获取字节输出流
+```java
+FileInputStream fis = new FileInputStream("d://a.jpg"); 
+ServletOutputStream os = resp.getOutputStream(); 
 
-IOUtils.copy(fis,os);
+IOUtils.copy(fis, os);
 fis.close();
 ```

@@ -5,13 +5,11 @@
 ## public void init(略)   初始化Servlet类
 
 1. 调用时机： 默认情况下，Servlet第一次被访问时调用
-   
 2. 调用次数：一次
-
 3. loadOnStartup:用来控制启动顺序 <br>
  负整数为第一次被访问时创建对象 <br>0或者正整数为服务器启动时创建对象 数字越小优先级越高
 
-```c 
+```java
  public void init(ServletConfig config) throws ServletException {
     this.servletConfig = config;
     System.out.println("Servlet initialized");
@@ -23,7 +21,7 @@
 1. 调用时机：每一次Servlet被访问时调用
 2. 调用次数：多次
 
-```c
+```java
 @Override
 public void service(ServletRequest req, ServletResponse res) throws ServletException, IOException {
     res.setContentType("text/html;charset=UTF-8");
@@ -37,7 +35,7 @@ public void service(ServletRequest req, ServletResponse res) throws ServletExcep
 1. 调用时机：内存释放或者服务器关闭 Servlet对象被销毁
 2. 调用次数：一次
 
-```c
+```java
 @Override
 public void destroy() {
     System.out.println("Servlet destroyed");
@@ -47,10 +45,9 @@ public void destroy() {
 ## public ServletConfig getServletConfig() 获取配置对象方法
 
 1. 作用：返回 Servlet 容器调用 init() 方法时传递给当前 Servlet 的 ServletConfig 对象，包含 Servlet 的初始化参数。
-
 2. 调用时机：在 Servlet 初始化后，任何需要获取配置信息的时候
 
-```c
+```java
 @Override
 public ServletConfig getServletConfig() {
     return this.servletConfig;
@@ -60,20 +57,18 @@ public ServletConfig getServletConfig() {
 ## public String getServletInfo() 获取附加信息方法
 
 1. 作用：返回一段字符串，包含关于该 Servlet 的基本信息，例如作者、版本、版权等。
-
 2. 调用时机：通常由 Servlet 容器或服务器管理工具在需要展示 Servlet 详情时调用。
 
-```c
+```java
 @Override
 public String getServletInfo() {
     return "Version: 1.0, Author: Admin";
 }
 ```
 
-
 ## 总体代码实现
 
-```c
+```java
 import javax.servlet.Servlet;
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
@@ -82,8 +77,7 @@ import javax.servlet.ServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
 
-@WebServlet("/user") //代替xml配置 指定页面映射
-
+@WebServlet("/user")
 public class DemoServlet implements Servlet {
 
     private ServletConfig servletConfig;
