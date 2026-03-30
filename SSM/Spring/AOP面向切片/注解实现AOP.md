@@ -35,7 +35,7 @@ public class StudentAOP {
 
 ## 1.2 前置通知 (@Before)
 
-接着，我们可以在里面编写增强方法，并将此方法添加到一个切点中，比如我们希望在Student的study方法执行之前执行我们的`before`方法：
+接着，我们可以在定义AOP增强操作的类里编写增强方法，并将此方法添加到一个切点中，比如我们希望在Student的study方法执行之前执行我们的`before`方法：
 
 ```java
 public void before(){

@@ -22,7 +22,7 @@
 
 ---
 
-## Spring IoC 注解开发基本用法总结
+## 附录: Spring IoC 注解开发基本用法总结
 
 现代企业开发已经全面拥抱注解配置。以下是按照实际开发顺序总结的基本用法：
 
@@ -48,11 +48,28 @@ public class MainConfiguration {
 ```
 
 ### 第三步：将对象注册为 Bean 
-在业务类上添加 `@Component` 注解，配合包扫描即可将其交给 Spring 管理。对于需要手动干预实例化过程的对象，可以在配置类中编写方法并加上 `@Bean` 注解。
+
+#### 3.1 自动注册（组件扫描）
+在自己编写的业务类上添加 `@Component` 注解，配合第二步的包扫描，Spring 容器会自动发现并将其交由 IoC 容器管理。
 
 ```java
 @Component
 public class Teacher {
+}
+```
+
+#### 3.2 手动注册（@Bean 方法）
+对于无法添加注解的第三方库类，或者需要手动干预实例化过程的对象，可以在配置类中编写返回该对象实例的方法，并加上 `@Bean` 注解。
+
+```java
+@Configuration
+public class BeanConfiguration {
+    
+    @Bean
+    public DataSource dataSource() {
+        return new MysqlDataSource();
+    }
+    
 }
 ```
 
