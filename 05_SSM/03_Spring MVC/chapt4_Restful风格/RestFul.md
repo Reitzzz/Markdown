@@ -11,7 +11,7 @@
 
 ## 1.1 概念与作用
 
-中文释义为**“表现层状态转换”**（名字挺高大上的），它不是一种标准，而是一种设计风格。它的主要作用是充分并正确利用HTTP协议的特性，规范资源获取的URI路径。通俗的讲，RESTful风格的设计允许将参数通过URL拼接传到服务端，目的是让URL看起来更简洁实用，并且我们可以充分使用多种HTTP请求方式（POST/GET/PUT/DELETE），来执行相同请求地址的不同类型操作。
+中文释义为 **“表现层状态转换”**（名字挺高大上的），它不是一种标准，而是一种设计风格。它的主要作用是充分并正确利用HTTP协议的特性，规范资源获取的URI路径。通俗的讲，RESTful风格的设计 **允许将参数通过URL拼接传到服务端**，目的是让URL看起来更简洁实用，并且我们可以充分使用多种HTTP请求方式（POST/GET/PUT/DELETE），来执行相同请求地址的不同类型操作。
 
 ## 1.2 路径参数读取
 
@@ -24,7 +24,7 @@ http://localhost:8080/mvc/index/123456
 我们可以直接将index的下一级路径作为请求参数进行处理，也就是说现在的请求参数包含在了请求路径中：
 
 ```java
-@RequestMapping("/index/{str}")
+@RequestMapping("/index/{str}")    //{str} 是一个路径占位符（也叫路径变量）。这意味着它匹配的是一个动态的路径。例如，/index/hello、/index/123 都能成功匹配并进入该方法。
 public String index(@PathVariable String str) {
     System.out.println(str);
     return "index";
@@ -34,8 +34,8 @@ public String index(@PathVariable String str) {
 注意请求路径我们可以手动添加类似占位符一样的信息，这样占位符位置的所有内容都会被作为请求参数，而方法的形参列表中必须包括一个与占位符同名的并且添加了`@PathVariable`注解的参数，或是由`@PathVariable`注解指定为占位符名称：
 
 ```java
-@RequestMapping("/index/{str}")
-public String index(@PathVariable("str") String text){
+@RequestMapping("/index/{str}")   //这是占位符
+public String index(@PathVariable("str") String text){  //这是与占位符同名的并且添加了`@PathVariable`注解的参数
     System.out.println(text);
     return "index";
 }

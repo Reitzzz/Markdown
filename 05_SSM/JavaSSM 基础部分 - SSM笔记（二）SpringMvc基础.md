@@ -1283,12 +1283,15 @@ public String upload(@RequestParam MultipartFile file) throws IOException {
 最后在前端添加一个文件的上传点：
 
 ```html
+<body>
+    .......
 <div>
     <form action="upload" method="post" enctype="multipart/form-data">
         <input type="file" name="file">
         <input type="submit">
     </form>
 </div>
+</body>
 ```
 
 这样，点击提交之后，文件就会上传到服务器了。
