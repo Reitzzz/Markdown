@@ -1,4 +1,4 @@
-# 2.4 @CookieValue 和 @SessionAttribute 详解笔记
+# 2.4 @CookieValue 和 @SessionAttribute 详解
 
 在 Spring MVC 开发中，Cookie 与 Session 是处理客户端与服务端状态同步的核心手段。本篇笔记将详细解析两者的使用方法、参数含义及其背后的实现逻辑。
 
@@ -116,9 +116,9 @@ public class CartController {
 ```java
 @RequestMapping("/user/info")
 public String getUserInfo(
-    // required=false 意义：防止用户未登录（Session 无此属性）时直接访问导致 400 错误
-    @SessionAttribute(value = "loginUser", required = false) User user) {
-
+    
+    @SessionAttribute(value = "loginUser", required = false) User user) { //required=false 
+                                                                          //意义：防止用户未登录（Session无此属性）时访问导致 400 错误   
     if (user == null) {
         return "redirect:/login"; // 未登录则重定向
     }
