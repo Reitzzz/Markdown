@@ -53,12 +53,15 @@ public class JwtUtils {
     
     public static String createJwt(UserDetails user){  //根据用户信息创建Jwt令牌
         Algorithm algorithm = Algorithm.HMAC256(key);
+
         Calendar calendar = Calendar.getInstance();
         Date now = calendar.getTime();
-        calendar.add(Calendar.SECOND, 3600 * 24 * 7);
+        calendar.add(Calendar.SECOND, 3600 * 24 * 7); //首先获取当前时间 再根据当前时间+7天
+
         return JWT.create()
-                .withClaim("name", user.getUsername())  //配置JWT自定义信息
-                .withClaim("authorities", user.getAuthorities().stream().map(GrantedAuthority::getAuthority).toList())
+                .withClaim("name", user.getUsername())  
+                .withClaim("authorities", user.getAuthorities().stream().map(GrantedAuthority::getAuthority).toList())   //配置JWT自定义信息
+
                 .withExpiresAt(calendar.getTime())  //设置过期时间
                 .withIssuedAt(now)    //设置创建创建时间
                 .sign(algorithm);   //最终签名
@@ -92,26 +95,39 @@ public class JwtUtils {
 接着我们需要自行实现一个JwtAuthenticationFilter加入到SpringSecurity默认提供的过滤器链中，用于处理请求头中携带的JWT令牌，并配置登录状态：
 
 ```java
-public class JwtAuthenticationFilter extends OncePerRequestFilter {  //继承OncePerRequestFilter表示每次请求过滤一次，用于快速编写JWT校验规则
-
+public class JwtAuthenticationFilter extends OncePerRequestFilter {  
+//继承OncePerRequestFilter表示每次请求过滤一次，用于快速编写JWT校验规则
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
         
         String authorization = request.getHeader("Authorization"); //首先从Header中取出JWT
+                                                                   //固定步骤 照抄即可
         
-        if (authorization != null && authorization.startsWith("Bearer ")) {  //判断是否包含JWT且格式正确
-            String token = authorization.substring(7);  
+        if (authorization != null && authorization.startsWith("Bearer ")) {  //判断是否包含JWT且格式为Bearer开头
+
+            String token = authorization.substring(7);  //截取七位以后的token
+
             UserDetails user = JwtUtils.resolveJwt(token);  //开始解析成UserDetails对象
+
             if(user != null) {  //如果得到的是null说明解析失败，JWT有问题
                 
                 UsernamePasswordAuthenticationToken authentication =
-                        new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());
+                        new UsernamePasswordAuthenticationToken(user, //user：认证主体，也就是当前登录用户(即通过token解析出来的user)
+
+                        null, //凭证信息。用户名密码登录时这里通常放密码，但 JWT 场景下已经不靠密码校验了，所以一般直接传 null
+
+                        user.getAuthorities() 
+                        //对应的权限模型。如果你的项目是菜单权限、资源权限，或者权限字符串格式不同，就要改 JWT 里存的内容和解析后的 GrantedAuthority 组装方式
+                        );
+
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+
                 //验证没有问题，那么就可以开始创建Authentication了，这里我们跟默认情况保持一致
                 //使用UsernamePasswordAuthenticationToken作为实体，填写相关用户信息进去
                 
-                SecurityContextHolder.getContext().setAuthentication(authentication); //然后直接把配置好的Authentication塞给SecurityContext表示已经完成验证
+                SecurityContextHolder.getContext().setAuthentication(authentication); 
+                //然后直接把配置好的Authentication塞给SecurityContext表示已经完成验证
             }
         }
         
@@ -127,7 +143,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {  //继承Onc
 
 ## 1.4 配置Security安全策略
 
-最后我们来配置一下SecurityConfiguration配置类，其实配置方法跟之前还是差不多，用户依然可以使用表单进行登录，并且登录方式也是一样的，就是有两个新增的部分需要我们注意一下：
+最后我们来配置一下SecurityConfiguration配置类，其实配置方法跟之前还是差不多，用户依然可以使用表单进行登录，并且登录方式也是一样的，就是有两个新增的部分需要我们注意一下：<br>
+RestBean具体代码:[实现登录授权和跨域处理](../chapt1_基于Session的分离（有状态）/02_实现登录授权和跨域处理.md#1.2-实现登录授权和跨域处理)
 
 ```java
 @Configuration
@@ -143,23 +160,33 @@ public class SecurityConfiguration {
                     conf.sessionCreationPolicy(SessionCreationPolicy.STATELESS);
                 }) //将Session管理创建策略改成无状态，这样SpringSecurity就不会创建会话了，也不会采用之前那套机制记录用户，因为现在我们可以直接从JWT中获取信息
                     
-                .addFilterBefore(new JwtAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class)
-                .build();  //添加我们用于处理JWT的过滤器到Security过滤器链中，注意要放在UsernamePasswordAuthenticationFilter之前
+                .addFilterBefore(new JwtAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class) 
+                //添加我们用于处理JWT的过滤器到Security过滤器链中，注意要放在UsernamePasswordAuthenticationFilter之前
+
+                .build();  
     }
 
-    //这个跟之前一样的写法，整合到一起处理，统一返回JSON格式
+    
     private void handleProcess(HttpServletRequest request,
                                HttpServletResponse response,
-                               Object exceptionOrAuthentication) throws IOException {
+                               Object exceptionOrAuthentication) throws IOException {  //这个跟之前一样的写法，整合到一起处理，统一返回JSON格式
         response.setContentType("application/json;charset=utf-8");
         PrintWriter writer = response.getWriter();
         if(exceptionOrAuthentication instanceof AccessDeniedException exception) {
-            writer.write(RestBean.failure(403, exception.getMessage()).asJsonString());
+
+            writer.write(RestBean.failure(403, exception.getMessage()).asJsonString());   
+            //AccessDeniedException 属于授权异常。当用户已经登录成功，但是尝试访问其角色或权限不足的接口时，Spring Security 会抛出此异常。
+            // 内部代码将其捕获，并封装为一个状态码为 403 的自定义JSON对象返回
+
         } else if(exceptionOrAuthentication instanceof AuthenticationException exception) {
             writer.write(RestBean.failure(401, exception.getMessage()).asJsonString());
+            //AuthenticationException 属于认证异常的顶层父类。当用户尚未登录试图访问受保护资源，或者在登录过程中密码错误、账号锁定等情况下会抛出。
+            // 内部代码将其封装为状态码为 401 的自定义JSON对象返回，提示前端该用户未认证。
+
         } else if(exceptionOrAuthentication instanceof Authentication authentication){
-            //不过这里需要注意，在登录成功的时候需要返回我们生成的JWT令牌，这样客户端下次访问就可以携带这个令牌了，令牌过期之后就需要重新登录才可以
+            
             writer.write(RestBean.success(JwtUtils.createJwt((User) authentication.getPrincipal())).asJsonString());
+            //这里需要注意，在登录成功的时候需要返回我们生成的JWT令牌，这样客户端下次访问就可以携带这个令牌了，令牌过期之后就需要重新登录才可以
         }
     }
 }

@@ -5,6 +5,14 @@
   - [1.1 业务接口返回JSON数据](#11-业务接口返回json数据)
   - [1.2 未登录与权限异常处理](#12-未登录与权限异常处理)
   - [1.3 全局统一异常处理配置](#13-全局统一异常处理配置)
+  - [1.4 项目实战：数据脱敏与接口防护（三层保险模型）](#14-项目实战数据脱敏与接口防护三层保险模型)
+    - [1. 序列化兜底：实体类屏蔽敏感字段](#1-序列化兜底实体类屏蔽敏感字段)
+    - [2. 接口层规范：引入 DTO/VO 模式方案](#2-接口层规范引入-dtovo-模式方案)
+      - [1) DTO 层：负责“进”（输入脱敏与校验）](#1-dto-层负责进输入脱敏与校验)
+      - [2) VO 层：负责“出”（输出脱敏）](#2-vo-层负责出输出脱敏)
+      - [3) Controller 层：业务中转](#3-controller-层业务中转)
+      - [4) Service 层：对象流转与转换](#4-service-层对象流转与转换)
+    - [3. 查询层收敛：按需 Select](#3-查询层收敛按需-select)
 
 ---
 
@@ -124,4 +132,125 @@ public class ExceptionController {
 }
 ```
 
-这样我们的后端就返回的是非常统一的JSON格式数据了，前端开发人员只需要根据我们返回的数据编写统一的处理即可，基于Session的前后端分离实现起来也是最简单的，几乎没有多少的学习成本，跟我们之前的使用是一样的，只是现在前端单独编写了而已。
+## 1.4 项目实战：数据脱敏与接口防护（三层保险模型）
+
+在前后端分离项目中，直接将数据库实体类（Entity）返回给前端是非常危险的操作（容易泄露密码、盐值等敏感信息）。以 `vue-admin-template` 的用户列表接口为例，为了防止密码泄露，我们应当采取“数据库不出、接口不传、序列化再兜底”的三层保险规范。
+
+### 1. 序列化兜底：实体类屏蔽敏感字段
+通过 Jackson 提供的 `@JsonIgnore` 注解，在 JSON 序列化时自动忽略该字段。这样即使 Controller 误返回了包含密码的对象，前端也无法解析到密码字段。但@JsonIgnore 是“读写都忽略”,如果你以后用 @RequestBody sys_user 来接收前端密码，password 可能会接不到（变 null） **一般只用于Demo**
+
+**文件：** `src/main/java/com/example/practice/entity/sys_user.java`
+```java
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.baomidou.mybatisplus.annotation.TableField;
+
+// ... 其他属性
+@JsonIgnore   
+@TableField("password")
+private String password;
+```
+
+### 2. 接口层规范：引入 DTO/VO 模式方案
+
+在复杂的业务场景中，Controller 层不应直接操作数据库实体类（Entity）。我们通过引入 **DTO（Data Transfer Object）** 处理输入，**VO（View Object）** 处理输出，实现完全的“三层保险”防护。
+
+#### 1) DTO 层：负责“进”（输入脱敏与校验）
+创建 `UserAddDTO`，专门用于接收前端传来的“新增”或“注册”参数。它可以包含业务逻辑需要的字段（如“确认密码”），但这些字段不需要存在于数据库表中。
+
+**文件：** `UserAddDTO.java`
+```java
+public class UserAddDTO {
+    private String username;
+    private String password;        // 正常接收，无需注解，方便后端加密处理
+    private String confirmPassword; // 业务字段：用于校验两次密码是否一致
+    private String role;
+    private String avatar;
+
+    // Getter and Setter...
+}
+```
+
+#### 2) VO 层：负责“出”（输出脱敏）
+创建 `UserListVO`，仅包含前端列表展示需要的字段。通过在类结构上彻底抹除 `password` 字段，确保数据在返回时绝无泄露风险。
+
+**文件：** `UserListVO.java`
+```java
+public class UserListVO {
+    private Integer id;
+    private String username;
+    private String avatar;
+    private String role;
+
+    // Getter and Setter...
+}
+```
+
+#### 3) Controller 层：业务中转
+Controller 不再直接引用 `sys_user`，而是作为 DTO 与 VO 的分发器，保持接口层的纯粹。
+
+**文件：** `UserController.java`
+```java
+@PostMapping("/add")
+public Result add(@RequestBody UserAddDTO userAddDTO) {
+    // 1. 业务校验（如校验两次密码是否一致）
+    if(!userAddDTO.getPassword().equals(userAddDTO.getConfirmPassword())){
+        return Result.error("两次密码输入不一致");
+    }
+    userService.addUser(userAddDTO);
+    return Result.success();
+}
+
+@GetMapping("/page")
+public Result<Page<UserListVO>> pageQuery(
+        @RequestParam(defaultValue = "1") Integer current,
+        @RequestParam(defaultValue = "10") Integer size) {
+    // 返回封装好的 VO 分页对象
+    Page<UserListVO> voPage = userService.getUserVOPage(current, size);
+    return Result.success(voPage);
+}
+```
+
+#### 4) Service 层：对象流转与转换
+在 Service 实现类中，利用 `BeanUtils` 进行属性拷贝，并在入库前对密码进行加密处理。
+
+**文件：** `UserServiceImpl.java`
+```java
+@Override
+public void addUser(UserAddDTO dto) {
+    sys_user user = new sys_user();
+    // DTO -> Entity 拷贝
+    BeanUtils.copyProperties(dto, user);
+    // 加密后再存入数据库
+    user.setPassword(BCrypt.hashpw(dto.getPassword())); 
+    this.save(user);
+}
+
+@Override
+public Page<UserListVO> getUserVOPage(Integer current, Integer size) {
+    // 1. 查出数据库实体分页
+    Page<sys_user> entityPage = this.page(Page.of(current, size));
+    
+    // 2. 将 Entity Page 映射转换为 VO Page
+    Page<UserListVO> voPage = new Page<>(current, size, entityPage.getTotal());
+    
+    List<UserListVO> voList = entityPage.getRecords().stream().map(user -> {
+        UserListVO vo = new UserListVO();
+        BeanUtils.copyProperties(user, vo); // 仅拷贝同名属性，password 自动被过滤
+        return vo;
+    }).collect(Collectors.toList());
+    
+    voPage.setRecords(voList);
+    return voPage;
+}
+```
+
+### 3. 查询层收敛：按需 Select
+在 Service 层拼接查询条件时，避免 `SELECT *`，明确指定需要的字段，从数据库查询源头掐断敏感数据的流出。
+
+**文件：** `src/main/java/com/example/practice/service/UserServiceImpl.java`
+```java
+LambdaQueryWrapper<sys_user> wrapper = Wrappers.lambdaQuery();
+// 只查需要的字段，绝对不查 password
+wrapper.select(sys_user::getId, sys_user::getUsername, sys_user::getAvatar, sys_user::getRole);
+// 执行分页...
+```

@@ -97,7 +97,9 @@ public class JwtUtils {
         try {
             DecodedJWT verify = jwtVerifier.verify(token);
             
-            if(blackList.contains(verify.getId()))  //判断是否存在于黑名单中，如果存在，则返回null表示失效
+            if(blackList.contains(verify.getId()))  
+            //使用vertify.getId()判断是否存在于黑名单中，如果存在，则返回null表示失效
+            //如果是类似于getUser还是getRole这样分开写 需要在每个方法里都写一遍
                 return null;
             Map<String, Claim> claims = verify.getClaims();
             if(new Date().after(claims.get("exp").asDate()))
@@ -121,7 +123,8 @@ public class JwtUtils {
 
 ```java
 .logout(conf -> conf
-        .logoutUrl("/api/auth/logout")
+        .logoutUrl("/api/auth/logout")    //设置logout路径
+                                          //需要根据实际项目更改
         .logoutSuccessHandler(this::onLogoutSuccess)
         .permitAll())
 ```

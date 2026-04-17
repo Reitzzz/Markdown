@@ -2,7 +2,7 @@
 
 - [目录](#目录)
 - [1. 自动续签JWT令牌与方案对比](#1-自动续签jwt令牌与方案对比)
-  - [1.1 自动续签JWT的需求与实现](#11-自动续签jwt的需求与实现)
+    - [1.1 自动续签JWT的需求与实现](#11-自动续签jwt的需求与实现)
   - [1.2 令牌刷新频率控制建议](#12-令牌刷新频率控制建议)
   - [1.3 JWT与传统Session校验方案对比](#13-jwt与传统session校验方案对比)
 
@@ -10,11 +10,13 @@
 
 # 1. 自动续签JWT令牌与方案对比
 
-## 1.1 自动续签JWT的需求与实现
+### 1.1 自动续签JWT的需求与实现
 
-在有些时候，我们可能希望用户能够一直使用我们的网站，而不是JWT令牌到期之后就需要重新登录，这种情况下前端就可以配置JWT自动续签，在发起请求时如果令牌即将到期，那么就向后端发起续签请求得到一个新的JWT令牌。
+在有些时候，我们可能希望用户能够一直使用我们的网站，而不是JWT令牌到期之后就需要重新登录。这种情况下前端就可以配置JWT自动续签：在发起请求时如果发现令牌即将到期，就向后端发起续签请求，从而得到一个新的JWT令牌。
 
-这里我们写一个接口专门用于令牌刷新：
+在实现续签接口时，除了生成新令牌，**更重要的是做好安全校验与防御性编程**，防止伪造凭证或系统异常导致服务崩溃。
+
+以下是一个健壮的令牌刷新接口实现：
 
 ```java
 @RestController
@@ -22,13 +24,47 @@
 public class AuthorizeController {
 
     @GetMapping("/refresh")
-    public RestBean<String> refreshToken(){
-        User user = (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        String jwt = JwtUtils.createJwt(user);
-        return RestBean.success(jwt);
+    public Result<Map<String, String>> refreshToken() {
+        // 1. 获取当前安全上下文中的认证信息
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        // 2. 防御性拦截：检查认证对象是否存在且已合法认证
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return Result.error("未登录或token无效");
+        }
+
+        // 3. 安全类型转换：使用 instanceof 模式匹配，彻底杜绝 ClassCastException
+        Object principal = authentication.getPrincipal();  
+        // 注意：这里取什么类型，严格取决于你的 JwtAuthenticationFilter 中存入了什么类型
+        if (!(principal instanceof String username) || !StringUtils.hasText(username)) {
+            // (1) 如果 principal 的实际类型确实是 String，它就会自动将其强转，并赋值给后面声明的新变量 username
+            // (2) 如果取出来的用户名是空的、null、或者全是空格，那么说明数据不合法，同样进入 if 报错
+            return Result.error("认证信息异常");
+        }
+
+        // 4. 验证用户最新状态：回查数据库，确保用户未被注销或角色未被修改
+        QueryWrapper<sys_user> wrapper = new QueryWrapper<>();
+        wrapper.eq("username", username);                //SELECT * FROM sys_user WHERE username = ? 
+        sys_user user = userMapper.selectOne(wrapper);
+
+        if (user == null || !StringUtils.hasText(user.getRole())) {
+            return Result.error("用户不存在或角色异常");
+        }
+
+        // 5. 签发新令牌并保持与登录接口一致的返回结构
+        String jwt = JwtUtil.createToken(user.getUsername(), user.getRole());
+        Map<String, String> data = new HashMap<>();
+        data.put("token", jwt); // 与 /login 返回结构保持一致，方便前端统一处理
+        
+        return Result.success(data);
     }
 }
 ```
+
+> **核心设计考量（避坑指南）：**
+> * **严谨的类型推断**：切忌直接对 `getPrincipal()` 进行对象强转。如果不清楚前置过滤器塞入了什么，极易在运行期引发 `ClassCastException` 导致接口 500 崩溃。
+> * **数据实时性验证**：仅凭旧 Token 里的负载信息直接签发新 Token 是不安全的。必须拿解析出的唯一标识（如 `username`）去数据库查最新状态，这是保证权限动态控制的关键。
+> * **接口结构一致性**：将返回值封装为 `{"token": "xxx"}`，与登录接口对接标准统一，是非常好的接口设计习惯。
 
 这样，前端在发现令牌可用时间不足时，就会先发起一个请求自动完成续期，得到一个新的Token：
 
