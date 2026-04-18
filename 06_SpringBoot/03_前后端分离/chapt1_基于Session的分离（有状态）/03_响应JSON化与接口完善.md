@@ -8,10 +8,10 @@
   - [1.4 项目实战：数据脱敏与接口防护（三层保险模型）](#14-项目实战数据脱敏与接口防护三层保险模型)
     - [1. 序列化兜底：实体类屏蔽敏感字段](#1-序列化兜底实体类屏蔽敏感字段)
     - [2. 接口层规范：引入 DTO/VO 模式方案](#2-接口层规范引入-dtovo-模式方案)
-      - [1) DTO 层：负责“进”（输入脱敏与校验）](#1-dto-层负责进输入脱敏与校验)
-      - [2) VO 层：负责“出”（输出脱敏）](#2-vo-层负责出输出脱敏)
-      - [3) Controller 层：业务中转](#3-controller-层业务中转)
-      - [4) Service 层：对象流转与转换](#4-service-层对象流转与转换)
+      - [1 DTO 层：负责“进”（输入脱敏与校验）](#1-dto-层负责进输入脱敏与校验)
+      - [2 VO 层：负责“出”（输出脱敏）](#2-vo-层负责出输出脱敏)
+      - [3 Controller 层：业务中转](#3-controller-层业务中转)
+      - [4 Service 层：对象流转与转换](#4-service-层对象流转与转换)
     - [3. 查询层收敛：按需 Select](#3-查询层收敛按需-select)
 
 ---
@@ -154,8 +154,8 @@ private String password;
 
 在复杂的业务场景中，Controller 层不应直接操作数据库实体类（Entity）。我们通过引入 **DTO（Data Transfer Object）** 处理输入，**VO（View Object）** 处理输出，实现完全的“三层保险”防护。
 
-#### 1) DTO 层：负责“进”（输入脱敏与校验）
-创建 `UserAddDTO`，专门用于接收前端传来的“新增”或“注册”参数。它可以包含业务逻辑需要的字段（如“确认密码”），但这些字段不需要存在于数据库表中。
+#### 1 DTO 层：负责“进”（输入脱敏与校验）
+创建 `UserAddDTO`，**专门用于接收前端传来的“新增”或“注册”参数**。它可以包含业务逻辑需要的字段（如“确认密码”），但这些字段不需要存在于数据库表中。
 
 **文件：** `UserAddDTO.java`
 ```java
@@ -170,8 +170,8 @@ public class UserAddDTO {
 }
 ```
 
-#### 2) VO 层：负责“出”（输出脱敏）
-创建 `UserListVO`，仅包含前端列表展示需要的字段。通过在类结构上彻底抹除 `password` 字段，确保数据在返回时绝无泄露风险。
+#### 2 VO 层：负责“出”（输出脱敏）
+创建 `UserListVO`，仅包含前端列表**展示**需要的字段。通过在类结构上彻底抹除 `password` 字段，确保数据在返回时绝无泄露风险。
 
 **文件：** `UserListVO.java`
 ```java
@@ -185,7 +185,7 @@ public class UserListVO {
 }
 ```
 
-#### 3) Controller 层：业务中转
+#### 3 Controller 层：业务中转
 Controller 不再直接引用 `sys_user`，而是作为 DTO 与 VO 的分发器，保持接口层的纯粹。
 
 **文件：** `UserController.java`
@@ -210,7 +210,7 @@ public Result<Page<UserListVO>> pageQuery(
 }
 ```
 
-#### 4) Service 层：对象流转与转换
+#### 4 Service 层：对象流转与转换
 在 Service 实现类中，利用 `BeanUtils` 进行属性拷贝，并在入库前对密码进行加密处理。
 
 **文件：** `UserServiceImpl.java`
@@ -218,20 +218,20 @@ public Result<Page<UserListVO>> pageQuery(
 @Override
 public void addUser(UserAddDTO dto) {
     sys_user user = new sys_user();
-    // DTO -> Entity 拷贝
-    BeanUtils.copyProperties(dto, user);
-    // 加密后再存入数据库
-    user.setPassword(BCrypt.hashpw(dto.getPassword())); 
+    
+    BeanUtils.copyProperties(dto, user);  // DTO -> Entity 拷贝
+    
+    user.setPassword(BCrypt.hashpw(dto.getPassword())); // 加密后再存入数据库
     this.save(user);
 }
 
 @Override
 public Page<UserListVO> getUserVOPage(Integer current, Integer size) {
-    // 1. 查出数据库实体分页
-    Page<sys_user> entityPage = this.page(Page.of(current, size));
     
-    // 2. 将 Entity Page 映射转换为 VO Page
-    Page<UserListVO> voPage = new Page<>(current, size, entityPage.getTotal());
+    Page<sys_user> entityPage = this.page(Page.of(current, size));  // 1. 查出数据库实体分页
+    
+    
+    Page<UserListVO> voPage = new Page<>(current, size, entityPage.getTotal());  // 2. 将 Entity Page 映射转换为 VO Page
     
     List<UserListVO> voList = entityPage.getRecords().stream().map(user -> {
         UserListVO vo = new UserListVO();
