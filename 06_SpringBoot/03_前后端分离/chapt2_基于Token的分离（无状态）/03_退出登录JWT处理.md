@@ -158,3 +158,5 @@ private void onLogoutSuccess(HttpServletRequest request,
 ![image-20230724214624046](https://s2.loli.net/2023/07/24/4o76q5yNHkabuip.png)
 
 *当前实现使用的是应用内存中的 `HashSet`，优点是简单直观，便于理解；缺点是应用重启后黑名单会丢失，而且多个服务实例之间无法共享。后续如果进入微服务场景，可以把黑名单迁移到 Redis 中，并根据 JWT 的过期时间设置对应的失效时间，方便自动清理。*
+
+*学习了Redis，也可以使用Redis来实现*[Redis实战退出登录黑名单](../../../07_Redis/chapt8_项目实战/02_Redis实现JWT黑名单策略.md)

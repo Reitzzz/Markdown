@@ -6,6 +6,11 @@
   - [1.2 配置文件](#12-配置文件)
   - [1.3 默认模板类](#13-默认模板类)
   - [1.4 模板类的使用](#14-模板类的使用)
+    - [1.4.1 通用键操作与 String 类型 (opsForValue)](#141-通用键操作与-string-类型-opsforvalue)
+    - [1.4.2 Hash 类型操作 (opsForHash)](#142-hash-类型操作-opsforhash)
+    - [1.4.3 List 类型操作 (opsForList)](#143-list-类型操作-opsforlist)
+    - [1.4.4 Set 类型操作 (opsForSet)](#144-set-类型操作-opsforset)
+    - [1.4.5 ZSet (Sorted Set) 类型操作 (opsForZSet)](#145-zset-sorted-set-类型操作-opsforzset)
   - [1.5 事务操作](#15-事务操作)
   - [1.6 对象序列化](#16-对象序列化)
 
@@ -82,30 +87,142 @@ public class RedisAutoConfiguration {
 
 ## 1.4 模板类的使用
 
-那么如何去使用这两个模板类呢？我们可以直接注入`StringRedisTemplate`来使用模板：
+在 Spring Boot 中，所有的 Redis 操作都是通过模板类完成的。Spring Data Redis 为不同的数据结构封装了专门的 `Operations` 工具对象。我们可以直接注入 `StringRedisTemplate`（推荐）或 `RedisTemplate` 来使用。
+
+### 1.4.1 通用键操作与 String 类型 (opsForValue)
+
+`opsForValue()` 用于操作简单的 K-V 字符串。此外，模板类本身也提供了一些不依赖具体数据类型的全局通用方法（如删除、判断存在、设置过期时间）。
 
 ```java
 @SpringBootTest
-class SpringBootTestApplicationTests {
+class RedisStringTest {
 
     @Autowired
     StringRedisTemplate template;
 
     @Test
-    void contextLoads() {
+    void testString() {
+        // 1. 获取专门用于操作 String 类型的工具对象
         ValueOperations<String, String> operations = template.opsForValue();
-        //获取一个专门用于操作 Redis 中 String（字符串）类型数据的工具对象
-        operations.set("c", "xxxxx");   //设置值
-        System.out.println(operations.get("c"));   //获取值
         
-        template.delete("c");    //删除键
-        System.out.println(template.hasKey("c"));   //判断是否包含键
-    }
+        // 设置值与获取值
+        operations.set("c", "xxxxx");
+        System.out.println(operations.get("c"));
 
+        // 2. 模板类提供的全局通用操作
+        // 判断是否包含键
+        System.out.println(template.hasKey("c"));
+        
+        // 设置过期时间
+        template.expire("c", 60, TimeUnit.SECONDS);
+        
+        // 删除键
+        template.delete("c");
+    }
 }
 ```
 
-实际上所有的值的操作都被封装到了`ValueOperations`对象中，而普通的键操作直接通过模板对象就可以使用了，大致使用方式其实和Jedis一致。
+### 1.4.2 Hash 类型操作 (opsForHash)
+
+Hash 结构类似于 Java 中的 `Map<String, Map<Object, Object>>`，非常适合存储对象（如用户信息）。
+
+```java
+@Test
+void testHash() {
+    HashOperations<String, Object, Object> hashOps = template.opsForHash();
+
+    // 存入单个属性 (大Key, 小Key, 值)
+    hashOps.put("user:1", "name", "张三");
+
+    // 批量存入多个属性
+    Map<String, String> map = new HashMap<>();
+    map.put("age", "20");
+    map.put("city", "杭州");
+    hashOps.putAll("user:1", map);
+
+    // 获取单个属性
+    Object name = hashOps.get("user:1", "name");
+    
+    // 获取大Key下的所有属性和值
+    Map<Object, Object> entries = hashOps.entries("user:1");
+    
+    // 删除某个小Key
+    hashOps.delete("user:1", "city");
+}
+```
+
+### 1.4.3 List 类型操作 (opsForList)
+
+List 是双端列表，支持从头部（左）或尾部（右）进行插入和弹出，类似 Java 的 `LinkedList`。
+
+```java
+@Test
+void testList() {
+    ListOperations<String, String> listOps = template.opsForList();
+
+    // 从左侧(头部)推入元素
+    listOps.leftPush("myList", "java");
+    listOps.leftPushAll("myList", "spring", "redis");
+
+    // 获取指定范围的元素 (0 到 -1 代表全部)
+    List<String> list = listOps.range("myList", 0, -1);
+
+    // 从右侧(尾部)弹出元素
+    String lastItem = listOps.rightPop("myList");
+    
+    // 获取列表长度
+    Long size = listOps.size("myList");
+}
+```
+
+### 1.4.4 Set 类型操作 (opsForSet)
+
+Set 是无序且不可重复的集合，常用于去重统计、共同关注、标签系统。
+
+```java
+@Test
+void testSet() {
+    SetOperations<String, String> setOps = template.opsForSet();
+
+    // 添加元素
+    setOps.add("mySet", "A", "B", "C", "A"); // 自动去重
+
+    // 判断元素是否存在
+    Boolean isMember = setOps.isMember("mySet", "A");
+
+    // 获取集合中所有元素
+    Set<String> members = setOps.members("mySet");
+    
+    // 随机弹出一个元素
+    String randomItem = setOps.pop("mySet");
+}
+```
+
+### 1.4.5 ZSet (Sorted Set) 类型操作 (opsForZSet)
+
+ZSet 是有序集合，每个元素关联一个分数（Score），Redis 会根据分数进行排序，非常适合排行榜功能。
+
+```java
+@Test
+void testZSet() {
+    ZSetOperations<String, String> zSetOps = template.opsForZSet();
+
+    // 添加元素并指定分数
+    zSetOps.add("rank", "user_A", 100.0);
+    zSetOps.add("rank", "user_B", 250.5);
+
+    // 给特定元素增加分数
+    zSetOps.incrementScore("rank", "user_A", 50.0);
+
+    // 按分数从大到小获取前两名 (0, 1)
+    Set<String> top2 = zSetOps.reverseRange("rank", 0, 1);
+    
+    // 获取元素的排名 (分数从大到小排，排名从0开始)
+    Long rank = zSetOps.reverseRank("rank", "user_B");
+}
+```
+
+实际上，所有的值操作都被封装到了对应的 `Operations` 对象中，而普通的键操作（如 `delete`）直接通过模板对象即可使用。这种设计方式与我们在控制台操作命令的逻辑是一一对应的。
 
 ## 1.5 事务操作
 
