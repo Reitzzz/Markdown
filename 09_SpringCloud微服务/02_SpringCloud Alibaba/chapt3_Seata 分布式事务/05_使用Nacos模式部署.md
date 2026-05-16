@@ -1,7 +1,7 @@
 # 1 使用 Nacos 模式部署
 
 - [1 使用 Nacos 模式部署](#1-使用-nacos-模式部署)
-  - [1.1 服务端 Nacos 注册中心配置](#11-服务端-nacos-注册中心配置)
+  - [1.1 服务端 application.yml 配置](#11-服务端-applicationyml-配置)
   - [1.2 配置文件导入与热更新管理](#12-配置文件导入与热更新管理)
   - [1.3 服务端事务组映射配置](#13-服务端事务组映射配置)
   - [1.4 客户端 Nacos 配置接入](#14-客户端-nacos-配置接入)
@@ -10,41 +10,49 @@
 
 ---
 
-## 1.1 服务端 Nacos 注册中心配置
+## 1.1 服务端 application.yml 配置
 
+Seata 1.8.0 以后，服务端已经没有 `registry.conf` 了，配置统一放到 `conf/application.yml` 中。
 前面我们实现了本地 Seata 服务的 file 模式部署，现在我们来看看如何让其配合 Nacos 进行部署，利用 Nacos 的配置管理和服务发现机制，Seata 能够更好地工作。
 
 我们先单独为 Seata 配置一个命名空间：
 
 ![image-20230306233444767](https://s2.loli.net/2023/03/06/93mXN5dlC2GTLOW.png)
 
-我们打开 `conf` 目录中的 `registry.conf` 配置文件：
-```properties
-registry {
-  # 注册配置
-  # 可以看到这里可以选择类型，默认情况下是普通的file类型，也就是本地文件的形式进行注册配置
-  # 支持的类型如下，对应的类型在下面都有对应的配置
-  # file 、nacos 、eureka、redis、zk、consul、etcd3、sofa
-  type = "nacos"
+我们打开 `conf` 目录中的 `application.yml` 配置文件，把注册中心、配置中心和存储方式一次性写进去：
+```yaml
+server:
+  port: 7091
 
-  # 采用nacos方式会将seata服务端也注册到nacos中，这样客户端就可以利用服务发现自动找到seata服务
-  # 就不需要我们手动指定IP和端口了，不过看似方便，坑倒是不少，后面再说
-  nacos {
-    # 应用名称，这里默认就行
-    application = "seata-server"
-    # Nacos服务器地址
-    serverAddr = "localhost:8848"
-    # 这里使用的是SEATA_GROUP组，一会注册到Nacos中就是这个组
-    group = "SEATA_GROUP"
-    # 这里就使用我们上面单独为seata配置的命名空间，注意填的是ID
-    namespace = "89fc2145-4676-48b8-9edd-29e867879bcb"
-    # 集群名称，这里还是使用default
-    cluster = "default"
-    # Nacos的用户名和密码
-    username = "nacos"
-    password = "nacos"
-  }
-    #...
+seata:
+  registry:
+    type: nacos
+    nacos:
+      application: seata-server
+      serverAddr: localhost:8848
+      group: SEATA_GROUP
+      namespace: 89fc2145-4676-48b8-9edd-29e867879bcb
+      cluster: default
+      username: nacos
+      password: nacos
+  config:
+    type: nacos
+    nacos:
+      serverAddr: localhost:8848
+      namespace: 89fc2145-4676-48b8-9edd-29e867879bcb
+      group: SEATA_GROUP
+      dataId: seataServer.properties
+      username: nacos
+      password: nacos
+  store:
+    mode: db
+    db:
+      datasource: druid
+      dbType: mysql
+      driverClassName: com.mysql.cj.jdbc.Driver
+      url: jdbc:mysql://localhost:3306/seata?rewriteBatchedStatements=true
+      user: root
+      password: 123456
 ```
 
 ## 1.2 配置文件导入与热更新管理
@@ -68,7 +76,7 @@ config {
   }
 ```
 
-接着，我们需要将配置导入到 Nacos 中，我们打开一开始下载的源码 `script/config-center/nacos` 目录，这是官方提供的上传脚本，我们直接运行即可（windows下没对应的bat就很蛋疼，可以使用git命令行来运行一下），这里我们使用这个可交互的版本：
+接着，我们需要将配置导入到 Nacos 中。这里打开一开始下载的源码 `script/config-center/nacos` 目录，这是官方提供的上传脚本，我们直接运行即可（Windows 下没有对应的 bat 时，可以用 Git Bash 或命令行来执行），这里我们使用这个可交互的版本：
 
 ![image-20230306233500474](https://s2.loli.net/2023/03/06/1tPwBFn7u3ScCeY.png)
 
@@ -86,8 +94,21 @@ config {
 
 ## 1.4 客户端 Nacos 配置接入
 
-现在我们就完成了服务端的 Nacos 配置，接着我们需要对客户端也进行 Nacos 配置：
+现在我们就完成了服务端的 Nacos 配置，接着我们需要对客户端也进行 Nacos 配置。
+如果你的业务服务是 Spring Boot + Spring Cloud Alibaba，那么通常还会同时配上数据源和服务发现配置，例如下面这样：
 ```yaml
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/cloudstudy?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=UTC
+    username: root
+    password: niuniu0626
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  cloud:
+    nacos:
+      discovery:
+        server-addr: localhost:8848
+        namespace: 89fc2145-4676-48b8-9edd-29e867879bcb
+
 seata:
   # 注册
   registry:
@@ -117,7 +138,7 @@ seata:
 
 ![image-20230306233545257](https://s2.loli.net/2023/03/06/Fn3R2Jrq1YyleCh.png)
 
-可以看到效果和上面是一样的，不过现在我们的注册和配置都继承在 Nacos 中进行了。
+可以看到效果和上面是一样的，不过现在我们的注册和配置都集成在 Nacos 中进行了。
 
 ## 1.5 配置数据库作为会话存储
 
@@ -222,7 +243,7 @@ INSERT INTO `distributed_lock` (lock_key, lock_value, expire) VALUES ('HandleAll
 
 ![image-20230306233933641](https://s2.loli.net/2023/03/06/qoNhgzM2PXpZU9B.png)
 
-将 `globle_table` 表的字段 `transaction_server_group` 长度适当增加一下即可：
+将 `global_table` 表的字段 `transaction_service_group` 长度适当增加一下即可：
 
 ![image-20230306233940850](https://s2.loli.net/2023/03/06/9LnaoUxHzlY1GdV.png)
 
